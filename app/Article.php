@@ -52,11 +52,14 @@ class Article
         $stmt->bindParam(':createTime', $createTime);
         $stmt->bindParam(':updateTime', $updateTime);
         if(!$stmt->execute()) {
-            print_r($stmt->errorInfo());
-            throw  new \Exception('文章发表失败', ErrorCode::ARTICLE_RELEASE_FAILED);
+
+            throw  new \Exception('文章发表失败1'.$stmt->errorInfo()[2], ErrorCode::ARTICLE_RELEASE_FAILED);
         }
         return [
             'id' => $this->_db->lastInsertId(),
+            'title' => $title,
+            'content' => $content,
+            'create_time' => $createTime,
         ];
     }
 
@@ -71,29 +74,36 @@ class Article
      */
     public function edit($artId, $title, $content, $userId)
     {
-        if(empty($title)) {
-            throw new \Exception('标题不能为空', ErrorCode::TITLE_CANNOT_EMPTY);
-        }
-        if(empty($content)) {
-            throw new \Exception('内容不能为空', ErrorCode::CONTENT_CANNOT_EMPTY);
-        }
 
-        if(empty($this->view($artId))) {
+        $info = $this->view($artId);
+        if(empty($info)) {
             throw new \Exception('文章不存在',  ErrorCode::ARTICLE_NOT_FOUND);
         }
 
-        $sql =  'UPDATE `article` SET `title`=:title, `content`=:content ,`update_time`=:updateTime WHERE `author`=:userId';
+        if($userId != $info['author']) {
+            throw new \Exception('对不起 您没有权限', 403);
+        }
+
+        //没有传递title 就用原来的title
+        $title = empty($title) ? $info['title'] : $title;
+        //没有传递content 就用原来的content
+        $content = empty($content) ? $info['content'] : $content;
+
+        $sql =  'UPDATE `article` SET `title`=:title, `content`=:content ,`update_time`=:updateTime WHERE `author`=:userId AND `id`=:id ';
         $stmt = $this->_db->prepare($sql);
         $updateTime = date('Y-m-d H:i:s');
         $stmt->bindParam(':title', $title);
         $stmt->bindParam(':content', $content);
         $stmt->bindParam(':updateTime', $updateTime);
         $stmt->bindParam(':userId', $userId);
+        $stmt->bindParam(':id', $artId);
         if(!$stmt->execute()) {
             throw new \Exception('编辑失败', ErrorCode::EDIT_FAILED);
         }
         return [
-            'title' => $title
+            'title' => $title,
+            'content' => $content,
+            'update_time' => $updateTime,
         ];
 
     }
@@ -115,6 +125,9 @@ class Article
         $stmt->bindParam(':user', $artId);
         $stmt->execute();
         $res = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if(empty($res)) {
+            throw new \Exception('没有该文章', 404);
+        }
         return $res;
     }
 
@@ -167,7 +180,6 @@ class Article
         $stmt->bindParam(':id',$userId);
         $stmt->execute();
         $res = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-        $error = $stmt->errorInfo();
         return $res;
     }
 }

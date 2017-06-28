@@ -52,27 +52,31 @@ class User
         $stmt->bindParam(':username', $name);
         $password = $this->encryptPassword($password);
         $stmt->bindParam(':password', $password);
-        if($stmt->execute()) {
-            return $stmt->fetch(\PDO::FETCH_ASSOC);
-        } else {
+        if(!$stmt->execute()) {
+            throw new \Exception('服务器内部错误', 500);
+        }
+        $user = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if(!$user) {
             throw new \Exception('用户名密码错误', ErrorCode::USERNAME_PASSWORD_INVALID);
         }
-
+        unset($user['passwd']);
+        return $user;
     }
 
     /**
      * 用户注册
      * @param $name
-     * @param $passwd
+     * @param $password
      * @return array
      * @throws \Exception
+     * @internal param $
      */
     public function register($name, $password)
     {
         if(empty($name)) {
             throw  new \Exception('用户名不能为空', ErrorCode::USERNAME_CANNOT_EMPTY);
         }
-        if(empty($passwd)) {
+        if(empty($password)) {
             throw  new \Exception('密码不能为空', ErrorCode::PASSWORD_CANNOT_EMPTY);
         }
         if($this->isUsername($name)) {
@@ -95,6 +99,7 @@ class User
     }
 
     /**
+     * 用户名是否存在
      * @param $name
      * @return mixed
      */
@@ -114,6 +119,7 @@ class User
     }
 
     /**
+     * 加密密码
      * @param $password
      * @return string
      */
